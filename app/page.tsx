@@ -49,6 +49,9 @@ fun main () : transaction page =
 `;
 
 const demoLabels: Record<string, string> = {
+  'tic-tac-toe': 'Tic-tac-toe — play, undo, try another move',
+  'lights-out': 'Lights Out — puzzles with hints',
+  'task-board': 'Task board — add, edit, move, search',
   'demo-hello': 'Hello — first page',
   'demo-react': 'React — reactive text',
   'demo-sum': 'Sum — record folding',
@@ -56,6 +59,8 @@ const demoLabels: Record<string, string> = {
   'demo-list-edit': 'ListEdit — editable linked list',
   'demo-threads': 'Threads — concurrent messages',
 };
+
+const interactiveExamples = ['tic-tac-toe', 'lights-out', 'task-board'];
 
 export default function Playground() {
   const [project, setProject] = useState<BrowserProject>(() =>
@@ -379,6 +384,10 @@ export default function Playground() {
   };
   const exampleGroups = [
     {
+      title: 'Interactive',
+      names: interactiveExamples.filter((name) => examples[name] !== undefined),
+    },
+    {
       title: 'Ur/Web demos',
       names: Object.keys(examples).filter((name) => name.startsWith('demo-')),
     },
@@ -386,7 +395,10 @@ export default function Playground() {
       title: 'Playground examples',
       names: [
         ...new Set([...Object.keys(projects), ...Object.keys(examples)]),
-      ].filter((name) => !name.startsWith('demo-')),
+      ].filter(
+        (name) =>
+          !name.startsWith('demo-') && !interactiveExamples.includes(name),
+      ),
     },
   ];
   return (

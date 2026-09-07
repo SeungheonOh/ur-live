@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { compileUr } from '../public/compiler-api.mjs';
 import { getRuntime, setHost } from '../public/browser-runtime.mjs';
+import { checkInteractions } from './check-interactions.mjs';
 
 const wasmModule = await WebAssembly.compile(
   await readFile(new URL('../public/compiler/vr.wasm', import.meta.url)),
@@ -24,6 +25,9 @@ for (const [name, expected] of [
   ['records', 'Scores total: 42'],
   ['modules', 'A functor produced 42'],
   ['counter', 'Count: '],
+  ['tic-tac-toe', 'X to move'],
+  ['lights-out', 'Lights on: 9'],
+  ['task-board', 'To do (1)'],
   ['strings', 'Characters: 3; bytes: 4.'],
   ['integer-boundaries', 'Wrapped: -9223372036854775808.'],
   ['demo-hello', 'Hello world!'],
@@ -88,6 +92,7 @@ for (const [name, expected] of [
   const html = await program.main();
   console.log(html);
   assert(html.includes(expected), html);
+  await checkInteractions(name, html, patches);
   if (name === 'counter') {
     const handler = html.match(/data-vrp-onclick="(\d+)"/)?.[1];
     assert(handler, html);

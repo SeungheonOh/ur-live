@@ -250,14 +250,13 @@ export function createRuntime() {
         throw new Error(`Unsupported operator ${op}`);
     }
   };
-  const unary = (op, x) =>
-    op === 'not'
-      ? !x
-      : op === '-' || op === 'neg'
-        ? typeof x === 'bigint'
-          ? int64(-x)
-          : -x
-        : x;
+  const unary = (op, x) => {
+    // Mono lowers negated equality (including string <>) to "!".
+    if (op === 'not' || op === '!') return !x;
+    if (op === '-' || op === 'neg')
+      return typeof x === 'bigint' ? int64(-x) : -x;
+    throw new Error(`Unsupported unary operator ${op}`);
+  };
   const source = (value) => ({ value, listeners: new Set() });
   const publish = (s, value) => {
     s.value = value;

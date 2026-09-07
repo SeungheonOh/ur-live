@@ -113,6 +113,22 @@ it in a second worker and displays HTML in a sandboxed iframe. Its event bridge
 keeps Ur execution out of the editor's main thread, including event handlers.
 **Stop program** terminates that worker. Starting a new program resets its state.
 
+## Interactive examples
+
+Open **Examples → Interactive**, then **Compile & run**. These are complete Ur
+programs you can edit, not JavaScript widgets embedded in the examples.
+
+| Example | What to try | Ur features |
+| --- | --- | --- |
+| Tic-tac-toe | Play a local two-player game, undo a winning move, or start over. | Immutable move history, derived state, event handlers, conditional XML. |
+| Lights Out | Solve three 4×4 boards; a press toggles adjacent tiles. Ask for hints or restart a level. | List folds, boolean logic, state records, reactive rendering. |
+| Task board | Add cards, edit and save titles, move them between To do / Doing / Done, and search as you type. | Independent sources, editable drafts, signal-based filtering, monadic list traversal. |
+
+Lights Out levels are constructed from a solved board, so they are solvable.
+Hints come from the remaining toggle sequence. Task-board drafts survive moving
+or filtering their card; saving the title updates its search matches. All state
+is local to the running program and resets when you compile again.
+
 ## Official Ur/Web demos
 
 The example picker has an **Ur/Web demos** group ported from the
@@ -194,7 +210,8 @@ npm run build
 
 `check:compiler` feeds real `.ur` files through WebAssembly using the same WASI
 shim as the browser, then executes the generated JavaScript. It checks output,
-counter updates, the six official demos (including editing linked-list rows and
+counter updates, all tic-tac-toe winning lines and undo, solving every Lights Out
+level through hints, task-board editing/moving/filtering, and the six official demos (including editing linked-list rows and
 real 3-/5-second thread delays), deliberate type/backend errors, and successful compilation
 after a failure. No synthetic AST fixtures are used.
 
@@ -215,7 +232,7 @@ ghc --make compiler/Main.hs -icompiler -ivendor/vr/src -XGHC2021 -O1 -j4 \
 node scripts/check-cross-compile.mjs
 ```
 
-All seventeen included programs produced byte-identical JavaScript or identical
+All twenty included programs produced byte-identical JavaScript or identical
 diagnostics between native GHC and Wasm GHC, normalizing filesystem roots in
 diagnostics only. Separately, **Chromium 152** compiled actual Ur programs in a
 browser worker and ran their output in another browser worker, including
