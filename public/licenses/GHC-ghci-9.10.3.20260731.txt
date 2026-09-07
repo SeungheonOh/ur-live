@@ -1,0 +1,1 @@
+/nix/store/7i286m7cwn9pqpyhgs7kbnn53g9xcgyh-wasm32-wasi-ghc-9.10/lib/doc/wasm32-wasi-ghc-9.10.3.20260731-inplace/ghci-9.10.3.20260731/LICENSE

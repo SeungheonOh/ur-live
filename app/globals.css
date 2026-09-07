@@ -1,0 +1,138 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
+  --font-sans: system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+}
+:root {
+  color-scheme: light;
+  --background: #fff;
+  --foreground: #20252c;
+  --primary: #2456a6;
+  --primary-foreground: #fff;
+  --muted: #f3f5f8;
+  --muted-foreground: #535e6c;
+  --border: #cbd2db;
+  --radius: 0.25rem;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font:
+    1rem/1.6 system-ui,
+    sans-serif;
+}
+.playground {
+  max-width: 100rem;
+  margin: auto;
+  padding: 1.5rem 2rem;
+}
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.7rem;
+}
+h1 {
+  font-size: 1.5rem;
+  font-weight: 650;
+}
+header p,
+footer {
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+  font-size: 0.9rem;
+}
+.toolbar button {
+  min-height: 2.4rem;
+  border-radius: 0.25rem;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+section {
+  min-width: 0;
+}
+h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0.5rem 0;
+}
+.code-editor,
+.output {
+  font:
+    0.95rem/1.65 ui-monospace,
+    'SFMono-Regular',
+    Consolas,
+    monospace;
+  tab-size: 2;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.2rem;
+  background: #f8f9fc;
+  width: 100%;
+  height: 28rem;
+  resize: vertical;
+  overflow: auto;
+  field-sizing: fixed;
+}
+.output {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.result {
+  min-height: 8rem;
+  border: 1px solid var(--border);
+  padding: 1rem;
+}
+.result-frame {
+  width: 100%;
+  height: 17rem;
+  padding: 0;
+  background: white;
+}
+footer {
+  margin-top: 1.25rem;
+}
+.diagnostic {
+  white-space: pre-wrap;
+  color: #9b2424;
+}
+@media (max-width: 55rem) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+  .playground {
+    padding: 1rem;
+  }
+  .code-editor,
+  .output {
+    height: 22rem;
+  }
+}
