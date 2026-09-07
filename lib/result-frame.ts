@@ -8,13 +8,19 @@ export function resultFrame(channel: string, nonce: string) {
 <main id="result"></main><script nonce="${nonce}">
 const channel=${JSON.stringify(channel)},root=document.getElementById('result');
 const send=data=>parent.postMessage({channel,...data},'*');
+document.addEventListener('keydown',event=>{if(event.key==='Escape')send({type:'preview-exit'});});
 addEventListener('message',({source,data})=>{
   if(source!==parent||data.channel!==channel)return;
   if(data.type==='result'){root.innerHTML=data.html;for(const node of root.querySelectorAll('[data-vrp-onload]'))send({type:'event',handler:Number(node.dataset.vrpOnload),event:{}});}
   if(data.type==='patch'){const node=root.querySelector('[data-vrp-slot="'+Number(data.slot)+'"]');if(node)node.innerHTML=data.html;}
+  if(data.type==='control'){const node=root.querySelector('[data-vrp-control="'+Number(data.control)+'"]');if(node&&node.value!==data.value)node.value=data.value;}
 });
 for(const kind of ['click','dblclick','contextmenu','mousedown','mouseup','mousemove','mouseenter','mouseleave','keydown','keyup','keypress','change','input','focus','blur']){
   document.addEventListener(kind,event=>{
+    if(kind==='input'||kind==='change'){
+      const control=event.target.closest?.('[data-vrp-control]');
+      if(control)send({type:'event',handler:Number(control.dataset.vrpControl),event:{value:control.value}});
+    }
     const node=event.target.closest?.('[data-vrp-on'+kind+']');if(!node)return;
     if(kind==='click'||kind==='contextmenu')event.preventDefault();
     send({type:'event',handler:Number(node.getAttribute('data-vrp-on'+kind)),event:{

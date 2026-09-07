@@ -11,11 +11,11 @@ import qualified Vr.Backend.ClientJavaScript as Client
 import qualified Vr.Mono.Syntax as M
 import Vr.Source
 
-emitBrowser :: Set.Set String -> M.File -> Either [Diagnostic] String
-emitBrowser supported file = either (Left . (: [])) Right $ do
+emitBrowser :: Set.Set String -> Maybe String -> M.File -> Either [Diagnostic] String
+emitBrowser supported entryModule file = either (Left . (: [])) Right $ do
   mapM_ checkDeclaration declarations
   entry <- case [(identifier, expression) | (name, identifier, _, expression, url) <- bindings,
-                    name == "main", "/main" `isSuffixOf` url] of
+                    name == "main", maybe ("/main" `isSuffixOf` url) (\m -> url == m <> "/main") entryModule] of
     [value] -> Right value
     _ -> Left (diagnostic BackendPhase "browser-main" noSpan
       "Define fun main () : transaction page. This browser target runs one page, without server routes.")

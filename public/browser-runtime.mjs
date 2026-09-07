@@ -1,7 +1,7 @@
 // Browser-only support for Vr's ordinary JavaScript expressions. No networking,
 // Node imports, native addons, SQL, filesystem, or server transaction machinery.
 const tags = new Set(
-  'html head title body br span div p strong em b i tt sub sup h1 h2 h3 h4 h5 h6 li ol ul hr pre section article nav aside footer header main meter progress output details figure figcaption data mark rp rt ruby summary time wbr bdi a img button label fieldset legend tabl tr th td thead tbody tfoot dl dt dd dyn active'.split(
+  'html head title body br span div p strong em b i tt sub sup h1 h2 h3 h4 h5 h6 li ol ul hr pre section article nav aside footer header main meter progress output details figure figcaption data mark rp rt ruby summary time wbr bdi a img button ctextbox label fieldset legend tabl tr th td thead tbody tfoot dl dt dd dyn active'.split(
     ' ',
   ),
 );
@@ -276,24 +276,54 @@ export function createRuntime() {
       return () => s.listeners.delete(notify);
     },
   });
-  const signalBind = (s, k) => ({
-    read: () => app(k, s.read()).read(),
-    subscribe: (notify) => {
-      let inner = app(k, s.read()).subscribe(notify);
-      const outer = s.subscribe(() => {
-        inner();
-        inner = app(k, s.read()).subscribe(notify);
-        notify();
-      });
-      return () => {
-        outer();
-        inner();
-      };
-    },
-  });
+  const signalBind = (s, k) => {
+    let initialized = false,
+      previous,
+      selected;
+    // Reading and subscribing must share the same continuation result. XML
+    // construction registers nested dyns/controls; evaluating k twice creates
+    // invisible duplicate subscriptions (exponential growth in Buffer's tail).
+    // Ur values are immutable, so an unchanged outer value can reuse its inner
+    // signal, which still observes its own independent source dependencies.
+    const current = () => {
+      const value = s.read();
+      if (!initialized || !Object.is(previous, value)) {
+        const next = app(k, value);
+        previous = value;
+        selected = next;
+        initialized = true;
+      }
+      return selected;
+    };
+    return {
+      read: () => current().read(),
+      subscribe: (notify) => {
+        let innerSignal = current();
+        let inner = innerSignal.subscribe(notify);
+        const outer = s.subscribe(() => {
+          const next = current();
+          if (next !== innerSignal) {
+            inner();
+            innerSignal = next;
+            inner = innerSignal.subscribe(notify);
+          }
+          notify();
+        });
+        return () => {
+          outer();
+          inner();
+        };
+      },
+    };
+  };
   const events = new Map();
   const dynamics = new Map();
+  const controls = new Map();
   const cleanups = [];
+  const timers = new Set();
+  let mountedRoot;
+  let inputOrigin;
+  let disposed = false;
   let nextId = 0;
   const eventValue = (e) => ({
     AltKey: !!e.altKey,
@@ -327,7 +357,12 @@ export function createRuntime() {
         id = ++nextId;
       dynamics.set(id, signal);
       cleanups.push(
-        signal.subscribe(() => host.patch?.(id, text(signal.read()))),
+        signal.subscribe(() => {
+          const body = text(signal.read());
+          host.patch?.(id, body);
+          const node = mountedRoot?.querySelector(`[data-vrp-slot="${id}"]`);
+          if (node) node.innerHTML = body;
+        }),
       );
       return html(`<span data-vrp-slot="${id}">${text(signal.read())}</span>`);
     }
@@ -335,7 +370,33 @@ export function createRuntime() {
       throw new Error('Active XML blocks are not supported yet');
     let attrs =
       attribute('class', classes || null) + attribute('style', style || null);
+    if (tag === 'ctextbox') {
+      attrs += attribute('type', 'text');
+      if (attributes.Source) {
+        const s = attributes.Source,
+          id = ++nextId;
+        controls.set(id, s);
+        attrs +=
+          attribute('data-vrp-control', id) + attribute('value', s.value);
+        const draw = () => {
+          const value = text(s.value);
+          // Echoing an input event through the worker could overwrite a newer
+          // keystroke. Other bindings and later programmatic sets still update.
+          if (id !== inputOrigin) host.control?.(id, value);
+          const node = mountedRoot?.querySelector(`[data-vrp-control="${id}"]`);
+          if (node && node.value !== value) node.value = value;
+        };
+        s.listeners.add(draw);
+        cleanups.push(() => s.listeners.delete(draw));
+      }
+    }
     for (const [name, value] of Object.entries(attributes)) {
+      if (tag === 'button' && name === 'Value') continue;
+      if (
+        tag === 'ctextbox' &&
+        (name === 'Source' || (name === 'Value' && attributes.Source))
+      )
+        continue;
       if (name.startsWith('On')) {
         const id = ++nextId,
           kind = name.slice(2).toLowerCase();
@@ -350,6 +411,8 @@ export function createRuntime() {
             'focus',
             'blur',
             'hashchange',
+            'input',
+            'change',
           ].includes(kind),
         });
         attrs += attribute(`data-vrp-on${kind}`, id);
@@ -360,9 +423,20 @@ export function createRuntime() {
     }
     // A standalone page is mounted inside an existing document body.
     const name =
-      tag === 'body' || tag === 'html' ? 'div' : tag === 'tabl' ? 'table' : tag;
+      tag === 'body' || tag === 'html'
+        ? 'div'
+        : tag === 'tabl'
+          ? 'table'
+          : tag === 'ctextbox'
+            ? 'input'
+            : tag;
+    // Ur/Web uses a button's Value attribute as its visible, escaped label.
+    const content =
+      (tag === 'button' && attributes.Value !== undefined
+        ? htmlify(attributes.Value)
+        : '') + text(child);
     return html(
-      `<${name}${attrs}>${text(child)}${['br', 'hr', 'img', 'wbr'].includes(name) ? '' : `</${name}>`}`,
+      `<${name}${attrs}>${['br', 'hr', 'img', 'wbr', 'input'].includes(name) ? '' : `${content}</${name}>`}`,
     );
   };
   const curry =
@@ -599,6 +673,19 @@ export function createRuntime() {
     throw new Error(`Unsupported browser Basis.${name}`);
   };
   const dispatch = async (id, event = {}) => {
+    const control = controls.get(Number(id));
+    if (control) {
+      if (typeof event.value !== 'string')
+        throw new Error('Expected a textbox string');
+      const previousOrigin = inputOrigin;
+      inputOrigin = Number(id);
+      try {
+        publish(control, event.value);
+      } finally {
+        inputOrigin = previousOrigin;
+      }
+      return {};
+    }
     const handler = events.get(Number(id));
     if (!handler) throw new Error('Unknown browser event handler');
     return run(
@@ -608,22 +695,51 @@ export function createRuntime() {
     );
   };
   const mount = (root) => {
-    for (const node of root.querySelectorAll('*'))
-      for (const attr of node.attributes) {
-        if (attr.name.startsWith('data-vrp-on'))
-          node.addEventListener(attr.name.slice(11), (event) =>
-            dispatch(attr.value, event),
-          );
-      }
-    for (const [id, signal] of dynamics) {
-      const node = root.querySelector(`[data-vrp-slot="${id}"]`);
-      if (node)
-        cleanups.push(
-          signal.subscribe(() => {
-            node.innerHTML = text(signal.read());
-          }),
-        );
+    mountedRoot = root;
+    // Delegation also covers controls/handlers inserted by later dyn updates.
+    for (const kind of [
+      'click',
+      'dblclick',
+      'contextmenu',
+      'mousedown',
+      'mouseup',
+      'mousemove',
+      'mouseenter',
+      'mouseleave',
+      'keydown',
+      'keyup',
+      'keypress',
+      'change',
+      'input',
+      'focus',
+      'blur',
+    ]) {
+      const listener = async (event) => {
+        try {
+          if (kind === 'input' || kind === 'change') {
+            const control = event.target.closest?.('[data-vrp-control]');
+            if (control)
+              await dispatch(control.dataset.vrpControl, {
+                value: control.value,
+              });
+          }
+          const node = event.target.closest?.(`[data-vrp-on${kind}]`);
+          if (node) {
+            if (kind === 'click' || kind === 'contextmenu')
+              event.preventDefault();
+            await dispatch(node.getAttribute(`data-vrp-on${kind}`), event);
+          }
+        } catch (error) {
+          host.error?.(String(error));
+        }
+      };
+      root.addEventListener(kind, listener, true);
+      cleanups.push(() => root.removeEventListener(kind, listener, true));
     }
+    for (const node of root.querySelectorAll('[data-vrp-onload]'))
+      void dispatch(node.dataset.vrpOnload, {}).catch((error) =>
+        host.error?.(String(error)),
+      );
   };
   latestRuntime = {
     app,
@@ -655,7 +771,14 @@ export function createRuntime() {
       return run(k());
     },
     sleep: (ms) => () =>
-      new Promise((resolve) => setTimeout(() => resolve({}), Number(ms))),
+      new Promise((resolve) => {
+        if (disposed) return;
+        const timer = setTimeout(() => {
+          timers.delete(timer);
+          if (!disposed) resolve({});
+        }, Number(ms));
+        timers.add(timer);
+      }),
     spawn: (action) => () => {
       run(action).catch((error) => host.error?.(String(error)));
       return {};
@@ -669,9 +792,14 @@ export function createRuntime() {
     dispatch,
     mount,
     dispose: () => {
+      disposed = true;
+      for (const timer of timers) clearTimeout(timer);
+      timers.clear();
       for (const cleanup of cleanups) cleanup();
       events.clear();
       dynamics.clear();
+      controls.clear();
+      mountedRoot = undefined;
     },
   };
   return latestRuntime;

@@ -44,6 +44,12 @@ for (const name of [
   'counter',
   'strings',
   'integer-boundaries',
+  'demo-hello',
+  'demo-react',
+  'demo-sum',
+  'demo-tc-sum',
+  'demo-list-edit',
+  'demo-threads',
   'type-error',
   'no-sql',
   'no-server',
@@ -56,6 +62,34 @@ await writeFile(
   new URL('../public/examples.json', import.meta.url),
   JSON.stringify(examples),
 );
+const projects = {
+  'multiple-files': {
+    files: {},
+    entry: 'main.ur',
+    order: ['math.ur', 'main.ur'],
+  },
+  'demo-threads': {
+    files: {},
+    entry: 'threads.ur',
+    order: ['buffer.ur', 'threads.ur'],
+  },
+};
+for (const name of ['math.ur', 'math.urs', 'main.ur'])
+  projects['multiple-files'].files[name] = await readFile(
+    new URL(`../examples/projects/modules/${name}`, import.meta.url),
+    'utf8',
+  );
+for (const name of ['buffer.ur', 'buffer.urs', 'threads.ur'])
+  projects['demo-threads'].files[name] =
+    '(* From the Ur/Web demo collection; BSD license: /licenses/UrWeb-demos.txt. *)\n' +
+    (await readFile(
+      new URL(`../vendor/urweb-demos/${name}`, import.meta.url),
+      'utf8',
+    ));
+await writeFile(
+  new URL('../public/projects.json', import.meta.url),
+  JSON.stringify(projects),
+);
 const notices = new URL('../public/licenses/', import.meta.url);
 await mkdir(notices, { recursive: true });
 await cp(
@@ -67,6 +101,10 @@ await cp(
   new URL('UrWeb.txt', notices),
 );
 const ghcDocs = new URL('../.wasm-toolchain/lib/doc/', import.meta.url);
+await cp(
+  new URL('../vendor/urweb-demos/LICENSE', import.meta.url),
+  new URL('UrWeb-demos.txt', notices),
+);
 for (const compiler of await readdir(ghcDocs)) {
   if (!compiler.startsWith('wasm32-wasi-ghc-')) continue;
   const libraries = new URL(compiler + '/', ghcDocs);

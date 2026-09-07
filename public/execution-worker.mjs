@@ -2,6 +2,7 @@ import { getRuntime, setHost } from './browser-runtime.mjs';
 
 setHost({
   patch: (id, html) => postMessage({ type: 'patch', slot: id, html }),
+  control: (id, value) => postMessage({ type: 'control', control: id, value }),
   log: (message) => postMessage({ type: 'log', message }),
   error: (message) => postMessage({ type: 'error', message }),
 });

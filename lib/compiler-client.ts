@@ -1,3 +1,5 @@
+import type { BrowserProject } from '../public/project.mjs';
+
 export type Compilation = {
   ok: boolean;
   javascript: string;
@@ -57,7 +59,7 @@ export class CompilerClient {
     });
     void this.ready.catch(() => {});
   }
-  async compile(source: string): Promise<Compilation> {
+  async compile(source: string | BrowserProject): Promise<Compilation> {
     if (this.disposed) throw new Error('Compiler worker was stopped');
     await this.ready;
     if (this.disposed) throw new Error('Compiler worker was stopped');

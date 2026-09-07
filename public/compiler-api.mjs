@@ -6,6 +6,7 @@ import {
   PreopenDirectory,
   ConsoleStdout,
 } from './compiler/wasi/index.js';
+import { entryModule, projectFiles } from './project.mjs';
 
 const encoder = new TextEncoder(),
   decoder = new TextDecoder();
@@ -32,29 +33,21 @@ export function virtualTree(files) {
 // source files, or GHC heap is reused across user programs. The compiled module
 // itself may be reused. WASI sees only these memory-backed files, never the host.
 export async function compileUr(module, standardFiles, source) {
-  if (typeof source !== 'string')
-    throw new TypeError('Ur source must be a string');
-  if (encoder.encode(source).length > 256 * 1024)
+  const legacy = typeof source === 'string';
+  if (legacy && encoder.encode(source).length > 256 * 1024)
     throw new Error('The playground accepts at most 256 KiB of Ur source.');
+  const inputs = legacy
+    ? {
+        'playground.urp': projectSource,
+        'playground.ur': source,
+        'playground.urs': projectSignature,
+      }
+    : projectFiles(source);
   const root = virtualTree(standardFiles);
   const output = new File([]);
-  root.set(
-    'work',
-    new Directory(
-      new Map([
-        [
-          'playground.urp',
-          new File(encoder.encode(projectSource), { readonly: true }),
-        ],
-        ['playground.ur', new File(encoder.encode(source), { readonly: true })],
-        [
-          'playground.urs',
-          new File(encoder.encode(projectSignature), { readonly: true }),
-        ],
-        ['program.mjs', output],
-      ]),
-    ),
-  );
+  const work = virtualTree(inputs);
+  work.set('program.mjs', output);
+  root.set('work', new Directory(work));
   let stderr = '',
     stdout = '';
   const stderrDecoder = new TextDecoder(),
@@ -66,6 +59,7 @@ export async function compileUr(module, standardFiles, source) {
       '/work/playground.urp',
       '/browser-capabilities.txt',
       '/work/program.mjs',
+      ...(!legacy ? [entryModule] : []),
     ],
     ['LANG=C.UTF-8', 'LC_ALL=C.UTF-8'],
     [

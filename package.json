@@ -10,6 +10,7 @@
     "build:wasm": "bash scripts/build-wasm.sh",
     "check:compiler": "node scripts/check-compiler.mjs",
     "build": "vinext build",
+    "deploy": "npm run build:wasm && npm run build && wrangler deploy --config deployment/wrangler.jsonc",
     "start": "node scripts/serve.mjs",
     "lint": "oxlint",
     "format": "oxfmt"

@@ -37,6 +37,8 @@ self.onmessage = async ({ data }) => {
       ok: false,
       javascript: '',
       diagnostics: String(error),
+      milliseconds: 0,
+      memoryBytes: 0,
     });
   }
 };
